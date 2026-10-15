@@ -1,0 +1,17 @@
+apply from: "$rootDir/gradle/multi-release.gradle"
+apply from: "$rootDir/gradle/publishing.gradle"
+
+description = 'Stream Source'
+
+dependencies {
+	api 'org.jspecify:jspecify:1.0.1'
+	api 'org.slf4j:slf4j-api:2.0.17'
+
+	testImplementation 'org.reactivestreams:reactive-streams-tck-flow:1.0.4'
+	// The `flow` tests use Reactor as a reference Flow implementation.
+	testImplementation "io.projectreactor:reactor-core:$reactorVersion"
+	testImplementation "io.projectreactor:reactor-test:$reactorVersion"
+
+	// Runs the TestNG-based Reactive Streams TCK on the JUnit Platform.
+	testRuntimeOnly 'org.junit.support:testng-engine:1.1.0'
+}

@@ -1,0 +1,26 @@
+// Java 21+ specific classes (virtual threads support), packaged in the multi-release jar
+// under META-INF/versions/21 and overriding their Java 17 counterparts at runtime.
+sourceSets {
+	java21 {
+		java {
+			srcDirs = ['src/main/java21']
+		}
+		compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+	}
+	test {
+		runtimeClasspath = files(sourceSets.java21.output) + runtimeClasspath
+	}
+}
+
+compileJava21Java {
+	options.release = 21
+}
+
+jar {
+	into('META-INF/versions/21') {
+		from sourceSets.java21.output
+	}
+	manifest {
+		attributes('Multi-Release': 'true')
+	}
+}

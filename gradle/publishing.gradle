@@ -1,0 +1,11 @@
+apply plugin: 'maven-publish'
+
+// `./gradlew publishToMavenLocal` installs the jars into ~/.m2/repository, for trying
+// them out from another local project.
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
+}
