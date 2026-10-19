@@ -37,14 +37,6 @@ See [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 </dependency>
 ```
 
-### reactor-adapter
-
-**Expected home:** https://github.com/reactor/reactor-addons \
-**Expected Maven coordinates:** `io.projectreactor.addons:reactor-adapter`
-
-Bridge from *stream-source* to/from Reactor and Reactive Streams.
-Provides integration with reactive components.
-
 ### experiments
 
 Concrete experiments to model expected use cases:

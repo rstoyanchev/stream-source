@@ -8,5 +8,4 @@ pluginManagement {
 rootProject.name = 'stream-source-build'
 
 include 'stream-source'
-include 'reactor-adapter'
 include 'experiments'
