@@ -16,7 +16,7 @@ For further insight and context on the design, see [FAQ.md](FAQ.md).
 
 # Source
 
-[Source](stream-source/src/main/java/io/spring/streamsource/Source.java) is the most central contract.
+[Source](src/main/java/io/spring/streamsource/Source.java) is the most central contract.
 A consumer uses it to receive items in a loop.
 It has the simplicity of `Iterator`, but for data items received from a remote target.
 It is `AutoCloseable` to release underlying resources such as a connection.
@@ -67,7 +67,7 @@ Typically, producer and consumer can benefit from operating independently of eac
 It allows the producer to run in parallel with the consumer.
 Processing rates can diverge, but within limits with backpressure applied if needed.
 
-[Exchange](stream-source/src/main/java/io/spring/streamsource/Exchange.java) is the mechanism for this.
+[Exchange](src/main/java/io/spring/streamsource/Exchange.java) is the mechanism for this.
 It is a pipe that a producer can push into and a consumer can receive from.
 [Sink](#sink) is the producing side. `Source` is the consuming side.
 `Exchange` implements both `Sink` and `Source`.
@@ -79,7 +79,7 @@ This is the backpressure between producer and consumer.
 
 ## Sink
 
-[Sink](stream-source/src/main/java/io/spring/streamsource/Sink.java) is the sending side of an `Exchange`.
+[Sink](src/main/java/io/spring/streamsource/Sink.java) is the sending side of an `Exchange`.
 It is a contract to `send` items, followed by completion.
 After completion, the `Exchange` remains open until all items are received.
 After that it becomes closed and `receiveNext` returns `false`.
@@ -121,7 +121,7 @@ Once items are placed in the `Exchange`, they belong to the consumer who can dec
 `Exchange` provides the means to share a stream of data between two threads.
 A common pattern is to start a producer task in a background thread and consume in the current thread.
 
-[ActiveSource](stream-source/src/main/java/io/spring/streamsource/task/ActiveSource.java) is the mechanism for this.
+[ActiveSource](src/main/java/io/spring/streamsource/task/ActiveSource.java) is the mechanism for this.
 It creates an `Exchange`, starts a producer task to push items into it, and returns the `Source` side of the `Exchange` to receive from.
 
 ```java
@@ -145,7 +145,7 @@ For earlier versions, an `ExecutorService` is expected to be passed in.
 
 ## Producer
 
-[Producer](stream-source/src/main/java/io/spring/streamsource/task/Producer.java) is a simple contract for pushing items into a `Sink`.
+[Producer](src/main/java/io/spring/streamsource/task/Producer.java) is a simple contract for pushing items into a `Sink`.
 It is necessary in `ActiveSource` to define the producer task to run in the background.
 
 You can turn any `Source` into a producer task through a static, factory method on `Producer`.
@@ -168,7 +168,7 @@ For example, to notify listeners about streamed items, or for pub-sub to deliver
 1. It's inefficient to invoke blocking listeners in a sequence.
 2. The producer is coupled to listener invocation.
 
-[MultiSink](stream-source/src/main/java/io/spring/streamsource/task/MultiSink.java) is a mechanism for this.
+[MultiSink](src/main/java/io/spring/streamsource/task/MultiSink.java) is a mechanism for this.
 It creates a `Sink` backed by an `Exchange`, starts a background thread to receive from it, and passes every item to all listeners concurrently in fork and join style.
 
 ```

@@ -5,7 +5,4 @@ pluginManagement {
 		gradlePluginPortal()
 	}
 }
-rootProject.name = 'stream-source-build'
-
-include 'stream-source'
-include 'experiments'
+rootProject.name = 'stream-source'

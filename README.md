@@ -13,7 +13,7 @@ Like `InputStream` but for Objects.
 More than API style, we need support for independent producer-consumer, and other essential patterns.
 
 *Stream Source* is a small library that aims to fill this gap.
-It is built by the Spring team but does not depend on Spring.
+It is built by the Spring team but does not depend on Spring Framework or any other Spring project.
 A core facility for the Java ecosystem with wide applicability.
 
 The Structured Concurrency JEP mentions "channels" are a non-goal but may be proposed in the future.
@@ -21,12 +21,11 @@ We aim to fill that gap in the interim with a solution for the use cases we see.
 When there is a concrete proposal in the JDK, we will adapt accordingly.
 
 
-## What's in the repository?
+## Maven artifact
 
-### stream-source
-**Dependencies:** `jspecify`, `slf4j-api`
+`io.spring.streamsource:stream-source` depends only on `jspecify` and `slf4j-api`.
 
-Provides key contracts and building blocks for data streaming.
+It provides key contracts and building blocks for data streaming.
 See [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 
 ```xml
@@ -36,12 +35,6 @@ See [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
     <version>0.0.1-SNAPSHOT</version>
 </dependency>
 ```
-
-### experiments
-
-Concrete experiments to model expected use cases:
-
-- [MCP Streamable HTTP](experiments/src/main/java/mcp/README.md)
 
 
 ## Other repositories?
