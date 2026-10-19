@@ -13,20 +13,29 @@ Like `InputStream` but for Objects.
 More than API style, we need support for independent producer-consumer, and other essential patterns.
 
 *Stream Source* is a small library that aims to fill this gap.
-It is built by the Spring team but does not depend on Spring Framework or any other Spring project.
+It is built by the Spring team but does not depend on the Spring Framework or any Spring project.
 A core facility for the Java ecosystem with wide applicability.
 
-The Structured Concurrency JEP mentions "channels" are a non-goal but may be proposed in the future.
+The Structured Concurrency JEP mentions "channels" as a non-goal that may be proposed in the future.
 We aim to fill that gap in the interim with a solution for the use cases we see.
 When there is a concrete proposal in the JDK, we will adapt accordingly.
 
+The *Stream Source* library provides imperative contracts and building blocks for data streaming.
 
-## Maven artifact
+For more deatils, see [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 
-`io.spring.streamsource:stream-source` depends only on `jspecify` and `slf4j-api`.
 
-It provides key contracts and building blocks for data streaming.
-See [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
+## Additional Repositories
+
+- [Spring AI Agent](https://github.com/sdeleuze/spring-ai-agent) --
+  Agentic abstraction for Spring AI that uses *stream-source*.
+- [Stream Source Spring Extensions](https://github.com/spring-projects-experimental/stream-source-spring-extensions) --
+  Spring project extensions that use *stream-source*.
+
+
+## Maven Artefact and Dependencies
+
+To use *Stream Source*, add the following dependency:
 
 ```xml
 <dependency>
@@ -36,13 +45,7 @@ See [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 </dependency>
 ```
 
-
-## Other repositories?
-
-- [Spring AI Agent](https://github.com/sdeleuze/spring-ai-agent) -- 
-  Agentic abstraction for Spring AI that uses *stream-source*.
-- [Stream Source Spring Extensions](https://github.com/spring-projects-experimental/stream-source-spring-extensions) --
-  Spring project extensions that use *stream-source*.
+`stream-source` has only two dependencies, [JSpecify](https://jspecify.dev/) and [SLF4J](https://www.slf4j.org/).
 
 
 ## Requirements and Use
