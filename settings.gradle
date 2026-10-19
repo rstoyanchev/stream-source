@@ -9,5 +9,4 @@ rootProject.name = 'stream-source-build'
 
 include 'stream-source'
 include 'reactor-adapter'
-include 'spring-extensions'
 include 'experiments'

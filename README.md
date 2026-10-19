@@ -39,13 +39,6 @@ For more details, see [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 Bridge from stream-source to/from Reactor and Reactive Streams.
 Provides integration with reactive components.
 
-### spring-extensions
-
-**Expected coordinates:** `org.springframework.experimental.streamsource:stream-source-spring-extensions`
-
-Currently, the module provides an SSE implemenation of `Source` for use with `RestClient`.\
-See the module [README.md](spring-extensions/README.md).
-
 ### experiments
 
 Concrete experiments to model expected use cases:
@@ -55,6 +48,8 @@ Concrete experiments to model expected use cases:
 
 ## Other repositories?
 
+- [Spring Extensions](https://github.com/spring-projects-experimental/stream-source-spring-extensions) --
+  Spring project extensions that use *stream-source*, including an SSE `Source` for `RestClient`.
 - [Spring AI Agent](https://github.com/sdeleuze/spring-ai-agent) -- 
   Agentic abstraction for Spring AI that uses *stream-source*.
 
