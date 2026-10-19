@@ -24,19 +24,25 @@ When there is a concrete proposal in the JDK, we will adapt accordingly.
 ## What's in the repository?
 
 ### stream-source
-
-**Expected coordinates:** `io.spring.streamsource:stream-source`\
 **Dependencies:** `jspecify`, `slf4j-api`
 
 Provides key contracts and building blocks for data streaming.
-For more details, see [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
+See [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
+
+```xml
+<dependency>
+    <groupId>io.spring.streamsource</groupId>
+    <artifactId>stream-source</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
 
 ### reactor-adapter
 
-**Expected coordinates:** `io.projectreactor.addons:reactor-adapter`\
-**Dependencies:** `reactor-core`
+**Expected home:** https://github.com/reactor/reactor-addons \
+**Expected Maven coordinates:** `io.projectreactor.addons:reactor-adapter`
 
-Bridge from stream-source to/from Reactor and Reactive Streams.
+Bridge from *stream-source* to/from Reactor and Reactive Streams.
 Provides integration with reactive components.
 
 ### experiments
@@ -48,10 +54,10 @@ Concrete experiments to model expected use cases:
 
 ## Other repositories?
 
-- [Spring Extensions](https://github.com/spring-projects-experimental/stream-source-spring-extensions) --
-  Spring project extensions that use *stream-source*, including an SSE `Source` for `RestClient`.
 - [Spring AI Agent](https://github.com/sdeleuze/spring-ai-agent) -- 
   Agentic abstraction for Spring AI that uses *stream-source*.
+- [Stream Source Spring Extensions](https://github.com/spring-projects-experimental/stream-source-spring-extensions) --
+  Spring project extensions that use *stream-source*.
 
 
 ## Requirements and Use
