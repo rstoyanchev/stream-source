@@ -325,6 +325,35 @@ public class BlockingQueueExchangeTests {
 	}
 
 	@Test
+	void closeUnblocksSendWithCapacityOne() throws Exception {
+		BlockingQueueExchange<String> exchange = new BlockingQueueExchange<>(1);
+		exchange.send("item 1");
+
+		CompletableFuture<Void> future = new CompletableFuture<>();
+		Thread sender = new Thread(() -> {
+			try {
+				exchange.send("item 2");
+				future.complete(null);
+			}
+			catch (Throwable ex) {
+				future.completeExceptionally(ex);
+			}
+		});
+		sender.start();
+
+		while (sender.getState() != Thread.State.WAITING) {
+			assertThat(future).isNotDone();
+			Thread.sleep(5);
+		}
+
+		exchange.close();
+
+		sender.join(2000);
+		assertThat(sender.isAlive()).isFalse();
+		assertThatThrownBy(() -> exchange.send("item 3")).isInstanceOf(SinkCompleteException.class);
+	}
+
+	@Test
 	void completeMultipleTimesIgnored() throws IOException, InterruptedException {
 		try (BlockingQueueExchange<String> exchange = new BlockingQueueExchange<>()) {
 			Sink<String> sink = exchange;

@@ -29,6 +29,8 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 
 	private @Nullable T receivedItem;
 
+	private volatile boolean receiving;
+
 	private volatile @Nullable Completion completion;
 
 	private volatile boolean closed;
@@ -105,13 +107,21 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 			return returnCompletion();
 		}
 
+		this.receiving = true;
 		try {
+			if (this.closed) {
+				return returnCompletion();
+			}
 			Object item = this.queue.take();
 			setReceivedItem(item);
 		}
 		catch (InterruptedException ex) {
+			this.receiving = false;
 			close();
 			throw ex;
+		}
+		finally {
+			this.receiving = false;
 		}
 
 		return (!this.closed);
@@ -161,7 +171,12 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 	public void close() {
 		this.closed = true;
 		this.queue.clear(); // discarded items
-		this.queue.offer(CLOSED); // unblocks receive side
+		if (this.receiving) {
+			// Unblock receive side, only if necessary
+			// Otherwise, we could thwart a blocked sender if capacity is 1
+			// Blocked receiver means no sender waiting
+			this.queue.offer(CLOSED);
+		}
 	}
 
 
