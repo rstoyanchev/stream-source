@@ -98,8 +98,12 @@ public abstract class AbstractSource<T> implements Source<T> {
 		return item;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 * <p>Subclasses can overrride {@link #handleClose} for resource cleanup.
+	 */
 	@Override
-	public void close() {
+	public final void close() {
 		// (this.receivedItem != null) => discarded item
 		closeInternal(null);
 	}
@@ -111,10 +115,10 @@ public abstract class AbstractSource<T> implements Source<T> {
 
 		this.closure = (ex != null ? ex : Boolean.TRUE);
 		if (ex != null) {
-			logger.debug("Closed with error", ex);
+			logger.debug("{} closed due to a failure while receiving", getClass().getSimpleName(), ex);
 		}
 		else {
-			logger.debug("Closed without error");
+			logger.debug("{} closed", getClass().getSimpleName());
 		}
 
 		try {
