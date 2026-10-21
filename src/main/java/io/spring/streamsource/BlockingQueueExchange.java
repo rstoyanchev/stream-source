@@ -22,6 +22,8 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 
 	private static final Object COMPLETE = new Object();
 
+	private static final Object CLOSED = new Object();
+
 
 	private final BlockingQueue<Object> queue;
 
@@ -134,7 +136,7 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 			closeAfterCompletion();
 			c.throwIfCompletedExceptionally();
 		}
-		else {
+		else if (!this.closed) {
 			this.receivedItem = (T) item;
 		}
 	}
@@ -159,6 +161,7 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 	public void close() {
 		this.closed = true;
 		this.queue.clear(); // discarded items
+		this.queue.offer(CLOSED); // unblocks receive side
 	}
 
 

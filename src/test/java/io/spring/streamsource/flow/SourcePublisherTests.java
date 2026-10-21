@@ -194,8 +194,7 @@ public class SourcePublisherTests {
 		}
 
 		@Override
-		public void close() {
-			super.close();
+		protected void handleClose(@Nullable Throwable cause) {
 			this.closed.countDown();
 		}
 	}

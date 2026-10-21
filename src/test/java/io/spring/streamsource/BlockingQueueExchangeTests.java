@@ -2,6 +2,8 @@ package io.spring.streamsource;
 
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -296,6 +298,30 @@ public class BlockingQueueExchangeTests {
 
 			assertThat(source.receiveNext()).isFalse();
 		}
+	}
+
+	@Test
+	void closeUnblocksReceiveNext() throws Exception {
+		BlockingQueueExchange<String> exchange = new BlockingQueueExchange<>();
+		CompletableFuture<Boolean> future = new CompletableFuture<>();
+		Thread receiver = new Thread(() -> {
+			try {
+				future.complete(exchange.receiveNext());
+			}
+			catch (Throwable ex) {
+				future.completeExceptionally(ex);
+			}
+		});
+		receiver.start();
+
+		while (receiver.getState() != Thread.State.WAITING) {
+			assertThat(future).isNotDone();
+			Thread.sleep(5);
+		}
+
+		exchange.close();
+
+		assertThat(future.get(2, TimeUnit.SECONDS)).isFalse();
 	}
 
 	@Test
