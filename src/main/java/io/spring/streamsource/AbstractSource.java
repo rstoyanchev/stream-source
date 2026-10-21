@@ -130,9 +130,10 @@ public abstract class AbstractSource<T> implements Source<T> {
 	}
 
 	/**
-	 * Handle the closing of this {@code Source} either because {@link #close()}
-	 * was called, or due to a failure while receiving an item.
-	 * <p>Subclasses can override this to perform resource cleanup.
+	 * Subclasses can override this method to perform resource cleanup when the
+	 * {@code Source} is closed via {@link #close()}, or as a result of a
+	 * failure in {@link #receiveItem()}.
+	 * <p>This method is called at most once.
 	 * @param failure an underlying cause for the close, if any
 	 */
 	protected void handleClose(@Nullable Throwable failure) throws IOException {
