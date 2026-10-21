@@ -8,8 +8,10 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Convenient base class for {@link Source} implementations that pre-implements
- * the receiving loop, exception handling, and lifecycle management with
- * subclasses left to implement {@link #receiveItem()}.
+ * the receiving loop, exception handling, and lifecycle management.
+ *
+ * <p>Subclasses implement {@link #receiveItem()} for the logic to produce each
+ * item, and optionally {@link #handleClose} to clean up underlying resources.
  */
 public abstract class AbstractSource<T> implements Source<T> {
 
@@ -32,11 +34,11 @@ public abstract class AbstractSource<T> implements Source<T> {
 			throwIfClosedWithError(closure);
 			return false;
 		}
-		logger.debug("receiving next..");
+		logger.debug("Receiving next..");
 		try {
 			T item = receiveItem();
 			if (item == null) {
-				logger.debug("no more items to receive");
+				logger.debug("No more items to receive");
 				close();
 				return false;
 			}
@@ -99,20 +101,37 @@ public abstract class AbstractSource<T> implements Source<T> {
 	@Override
 	public void close() {
 		// (this.receivedItem != null) => discarded item
-		closeInternal(Boolean.TRUE);
+		closeInternal(null);
 	}
 
-	private void closeInternal(Object closure) {
+	private void closeInternal(@Nullable Throwable ex) {
 		if (this.closure != null) {
 			return;
 		}
-		this.closure = closure;
-		if (closure instanceof Throwable ex) {
-			logger.debug("closed with error {}", ex.toString());
+
+		this.closure = (ex != null ? ex : Boolean.TRUE);
+		if (ex != null) {
+			logger.debug("Closed with error", ex);
 		}
 		else {
-			logger.debug("closed without error");
+			logger.debug("Closed without error");
 		}
+
+		try {
+			handleClose(ex);
+		}
+		catch (Throwable ex2) {
+			logger.debug("Error while handling close", ex2);
+		}
+	}
+
+	/**
+	 * Handle the closing of this {@code Source} either because {@link #close()}
+	 * was called, or due to a failure while receiving an item.
+	 * <p>Subclasses can override this to perform resource cleanup.
+	 * @param failure an underlying cause for the close, if any
+	 */
+	protected void handleClose(@Nullable Throwable failure) throws IOException {
 	}
 
 }
