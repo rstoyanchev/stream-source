@@ -1,7 +1,16 @@
 package io.spring.streamsource;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,6 +130,54 @@ class AbstractSourceTests {
 		source.close();
 
 		assertThat(source.receiveNext()).isFalse();
+	}
+
+	@Test
+	void closeHandlerIsCalledOnce() throws Exception {
+		int threadCount = 8;
+		ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+		try {
+			for (int round = 0; round < 2000; round++) {
+				CloseCountingSource<String> source = new CloseCountingSource<>();
+				CountDownLatch latch = new CountDownLatch(1);
+				List<Future<?>> futures = new ArrayList<>(threadCount);
+				for (int i = 0; i < threadCount; i++) {
+					futures.add(executor.submit(() -> {
+						latch.await();
+						source.close();
+						return null;
+					}));
+				}
+				latch.countDown();
+				for (Future<?> future : futures) {
+					future.get(2, TimeUnit.SECONDS);
+				}
+				assertThat(source.getCount()).as("Round %d", round).isEqualTo(1);
+			}
+		}
+		finally {
+			executor.shutdownNow();
+		}
+	}
+
+
+	private static class CloseCountingSource<T> extends AbstractSource<T> {
+
+		private final AtomicInteger count = new AtomicInteger();
+
+		public int getCount() {
+			return this.count.get();
+		}
+
+		@Override
+		protected @Nullable T receiveItem() {
+			return null;
+		}
+
+		@Override
+		protected void handleClose(@Nullable Throwable failure) {
+			this.count.incrementAndGet();
+		}
 	}
 
 }

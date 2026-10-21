@@ -1,6 +1,7 @@
 package io.spring.streamsource;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ public abstract class AbstractSource<T> implements Source<T> {
 
 	private @Nullable T receivedItem;
 
-	private volatile @Nullable Object closure; // Boolean.TRUE | IOException | RuntimeException
+	private final AtomicReference<@Nullable Object> closure = new AtomicReference<>(); // Boolean.TRUE | IOException | RuntimeException
 
 
 	protected AbstractSource() {
@@ -29,7 +30,7 @@ public abstract class AbstractSource<T> implements Source<T> {
 
 	@Override
 	public boolean receiveNext() throws IOException, InterruptedException {
-		Object closure = this.closure;
+		Object closure = this.closure.get();
 		if (closure != null) {
 			throwIfClosedWithError(closure);
 			return false;
@@ -109,11 +110,10 @@ public abstract class AbstractSource<T> implements Source<T> {
 	}
 
 	private void closeInternal(@Nullable Throwable ex) {
-		if (this.closure != null) {
+		if (!this.closure.compareAndSet(null, (ex != null ? ex : Boolean.TRUE))) {
 			return;
 		}
 
-		this.closure = (ex != null ? ex : Boolean.TRUE);
 		if (ex != null) {
 			logger.debug("{} closed due to a failure while receiving", getClass().getSimpleName(), ex);
 		}
