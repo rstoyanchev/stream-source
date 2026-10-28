@@ -90,8 +90,9 @@ final class PublisherSource<T> extends AbstractSource<T> {
 
 		private final AtomicReference<@Nullable Subscription> subscription = new AtomicReference<>();
 
-		/** Items requested but not yet received. */
 		private final AtomicLong outstanding = new AtomicLong();
+
+		// Subscriber methods
 
 		@Override
 		public void onSubscribe(Subscription subscription) {
@@ -163,7 +164,7 @@ final class PublisherSource<T> extends AbstractSource<T> {
 			return (this.subscription.getAndSet(DONE) != DONE);
 		}
 
-		// Methods for use from the receiving loop to signal to the upstream Publisher
+		// Subscription methods to signal from the receiving loop
 
 		@Override
 		public void request(long n) {

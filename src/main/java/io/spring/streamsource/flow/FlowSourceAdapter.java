@@ -11,6 +11,21 @@ import org.jspecify.annotations.Nullable;
  * Main class that provides adapters to bridge between {@link Source} and JDK
  * {@link java.util.concurrent.Flow.Publisher}.
  *
+ * <p><strong>Publisher to Source Adapter</strong></p>
+ *
+ * This adapter subscribes to a Reactive Streams {@link Publisher}, buffers
+ * items in a {@link BlockingQueueExchange}, and exposes those items to a
+ * blocking consumer as {@link Source}.
+ *
+ * <p>The capacity of the {@code BlockingQueueExchange} doubles as the reactive
+ * demand window. The initial request equals the {@code capacity}, and each time
+ * the consumer takes an item out, another is requested. At any time, the
+ * capacity equals the number of buffered items plus the outstanding demand.
+ *
+ * <p>The use of {@code BlockingQueueExchange} allows published items to be
+ * handled without blocking or a separate thread. The blocking consumer blocks
+ * on its own thread if necessary to receive the next item.
+ *
  * <p><strong>Source to Publisher Adapter</strong></p>
  *
  * This adapter is a {@link Publisher} that receives from a {@link Source} on a
@@ -31,21 +46,6 @@ import org.jspecify.annotations.Nullable;
  * {@link Source#receiveNext()} if there is no demand, {@code onComplete} and
  * {@code onError} signals are only discovered after the subscriber signals
  * non-zero demand.
- *
- * <p><strong>Publisher to Source Adapter</strong></p>
- *
- * This adapter subscribes to a Reactive Streams {@link Publisher}, buffers
- * items in a {@link BlockingQueueExchange}, and exposes those items to a
- * blocking consumer as {@link Source}.
- *
- * <p>The capacity of the {@code BlockingQueueExchange} doubles as the reactive
- * demand window. The initial request equals the {@code capacity}, and each time
- * the consumer takes an item out, another is requested. At any time, the
- * capacity equals the number of buffered items plus the outstanding demand.
- *
- * <p>The use of {@code BlockingQueueExchange} allows published items to be
- * handled without blocking or a separate thread. The blocking consumer blocks
- * on its own thread if necessary to receive the next item.
  */
 public abstract class FlowSourceAdapter {
 
@@ -55,6 +55,28 @@ public abstract class FlowSourceAdapter {
 	private FlowSourceAdapter() {
 	}
 
+
+	/**
+	 * Adapt a {@link Publisher} to a {@link Source} with the capacity set to
+	 * {@link BlockingQueueExchange#DEFAULT_CAPACITY}.
+	 * @param publisher the publisher to subscribe to and receive from
+	 * @return a Source over the items from the publisher
+	 * @param <T> the type of items received
+	 */
+	public static <T> Source<T> toSource(Publisher<T> publisher) {
+		return toSource(publisher, BlockingQueueExchange.DEFAULT_CAPACITY);
+	}
+
+	/**
+	 * Variant of {@link #toSource(Publisher)} with a configurable capacity.
+	 * @param publisher the publisher to subscribe to
+	 * @param capacity the number of items to buffer, and to request
+	 * @return a Source over the items of the publisher
+	 * @param <T> the type of items
+	 */
+	public static <T> Source<T> toSource(Publisher<T> publisher, int capacity) {
+		return new PublisherSource<>(publisher, capacity);
+	}
 
 	/**
 	 * Adapt a {@link Source} to a {@link Publisher}.
@@ -83,28 +105,6 @@ public abstract class FlowSourceAdapter {
 	 */
 	public static <T> Publisher<T> toPublisher(Source<T> source, Executor executor) {
 		return new SourcePublisher<>(source, executor);
-	}
-
-	/**
-	 * Adapt a {@link Publisher} to a {@link Source} with the capacity set to
-	 * {@link BlockingQueueExchange#DEFAULT_CAPACITY}.
-	 * @param publisher the publisher to subscribe to and receive from
-	 * @return a Source over the items from the publisher
-	 * @param <T> the type of items received
-	 */
-	public static <T> Source<T> toSource(Publisher<T> publisher) {
-		return toSource(publisher, BlockingQueueExchange.DEFAULT_CAPACITY);
-	}
-
-	/**
-	 * Variant of {@link #toSource(Publisher)} with a configurable capacity.
-	 * @param publisher the publisher to subscribe to
-	 * @param capacity the number of items to buffer, and to request
-	 * @return a Source over the items of the publisher
-	 * @param <T> the type of items
-	 */
-	public static <T> Source<T> toSource(Publisher<T> publisher, int capacity) {
-		return new PublisherSource<>(publisher, capacity);
 	}
 
 
