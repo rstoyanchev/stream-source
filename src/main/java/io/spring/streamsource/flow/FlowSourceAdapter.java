@@ -36,8 +36,8 @@ import org.jspecify.annotations.Nullable;
  * The thread is parked before each call to {@link Source#receiveNext()},
  * if necessary to await demand, and unparked on the next request signal.
  *
- * <p>A cancel signal sets a cancellation flag and either interrupts a receive
- * in progress or unparks the receiving task to ensure immediate handling.
+ * <p>A cancel signal sets a cancellation flag and either interrupts a receive in
+ * progress (via Executor thread) or unparks the receiving task for prompt handling.
  * The {@code Source} is closed by the receiving task before it exits.
  * If the {@code Source} does not respond to interruption, the receive remains
  * blocked, but after it returns the cancellation is noticed immediately and

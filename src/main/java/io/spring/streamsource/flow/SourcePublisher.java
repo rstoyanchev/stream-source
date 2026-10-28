@@ -50,7 +50,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 					"A Source has a single consumer, so " + this + " allows a single subscriber"));
 			return;
 		}
-		ReceiveTask<T> task = new ReceiveTask<>(this.source, subscriber);
+		ReceiveTask<T> task = new ReceiveTask<>(this.source, subscriber, this.executor);
 		try {
 			subscriber.onSubscribe(task);
 		}
@@ -111,6 +111,9 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 		private final Subscriber<? super T> actual;
 
+		/** To absorb potential blocking from an interrupt */
+		private final Executor executor;
+
 		/** Outstanding demand, {@code Long.MAX_VALUE} for unbounded. */
 		private final AtomicLong requested = new AtomicLong();
 
@@ -125,9 +128,10 @@ final class SourcePublisher<T> implements Publisher<T> {
 		/** State variable for interrupting the receiving thread only while blocked on {@link Source#receiveNext()}. */
 		private final AtomicInteger phase = new AtomicInteger(IDLE);
 
-		ReceiveTask(Source<T> source, Subscriber<? super T> actual) {
+		ReceiveTask(Source<T> source, Subscriber<? super T> actual, Executor executor) {
 			this.source = source;
 			this.actual = actual;
+			this.executor = executor;
 		}
 
 		/**
@@ -214,9 +218,9 @@ final class SourcePublisher<T> implements Publisher<T> {
 			}
 			finally {
 				if (!this.phase.compareAndSet(RECEIVING, IDLE)) {
-					// cancel() got there first: wait for its interrupt to land, then
-					// clear it, so that it cannot reach the subscriber, close(), or
-					// whatever the executor runs next on this thread
+					// cancel() got there first: wait for its interrupt to land,
+					// then clear it, so that it cannot reach the subscriber, close(), or
+					// whatever the Executor runs next on this thread
 					while (this.phase.get() == INTERRUPTING) {
 						Thread.yield();
 					}
@@ -285,9 +289,16 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 		/**
 		 * {@inheritDoc}
-		 * <p>Interrupts the receiving thread if it is blocked in receiveNext,
-		 * or unparks it if in awaitDemand(). This avoids blocking, and allows
-		 * the receiving thread instead to close the {@code Source} when it exits.
+		 *
+		 * <p>Interrupts the receiving thread if it is blocked in receiveNext, or
+		 * unparks it if in awaitDemand() to ensure prompt handling.
+		 * The {@code Source} is closed by the receiving thread when it exits.
+		 *
+		 * <p>Note the interrupt is performed on an {@code Executor} thread to
+		 * avoid any potential blocking. That may wait for a thread to free up,
+		 * and if the task is rejected, or the {@code Source} does not respond
+		 * to interruption, the receive remains blocked until it returns after
+		 * which the cancellation is noticed immediately.
 		 */
 		@Override
 		public void cancel() {
@@ -299,16 +310,28 @@ final class SourcePublisher<T> implements Publisher<T> {
 			if (thread == null) {
 				return;
 			}
-			if (this.phase.compareAndSet(RECEIVING, INTERRUPTING)) {
+			if (this.phase.get() == RECEIVING) {
+				try {
+					this.executor.execute(this::interruptReceive);
+				}
+				catch (RejectedExecutionException ex) {
+					logger.debug("Failed execute interrupt, the receive remains blocked until it returns");
+				}
+			}
+			else {
+				unpark(thread);
+			}
+		}
+
+		private void interruptReceive() {
+			Thread thread = this.receiveThread;
+			if (thread != null && this.phase.compareAndSet(RECEIVING, INTERRUPTING)) {
 				try {
 					thread.interrupt();
 				}
 				finally {
 					this.phase.set(INTERRUPTED);
 				}
-			}
-			else {
-				unpark(thread);
 			}
 		}
 
