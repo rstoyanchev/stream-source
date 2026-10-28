@@ -70,14 +70,16 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 	}
 
 	/**
-	 * Non-blocking variant of {@link #send(Object)}: returns {@code false} instead of
-	 * blocking when there is no room.
-	 * @param item the item to add
+	 * Variant of {@link #send} that returns {@code false} without blocking if
+	 * there is no remaining capacity.
+	 * <p>For internal use by the reactive {@code Publisher} to {@code Source}
+	 * bridge to avoid blocking in case of a non-compliant Publisher.
+	 * @param item the item to send
 	 * @return whether the item was accepted
-	 * @throws SinkCompleteException if the Sink was already completed, or closed
-	 * from the Source side
+	 * @throws SinkCompleteException if the Sink was already completed, or
+	 * closed from the Source side
 	 */
-	public boolean offer(T item) {
+	public boolean trySend(T item) {
 		if (this.closed) {
 			throw new SinkCompleteException("Exchange closed from the Source side");
 		}

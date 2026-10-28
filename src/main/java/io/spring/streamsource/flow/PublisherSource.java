@@ -118,7 +118,7 @@ final class PublisherSource<T> extends AbstractSource<T> {
 				return;
 			}
 			try {
-				if (!exchange.offer(item)) {
+				if (!exchange.trySend(item)) {
 					// demand accounting above should make this unreachable, but
 					// protect against a publisher that sends more
 					demandExceeded();
