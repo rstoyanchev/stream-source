@@ -50,26 +50,26 @@ final class SourcePublisher<T> implements Publisher<T> {
 					"A Source has a single consumer, so " + this + " allows a single subscriber"));
 			return;
 		}
-		ReceiveLoop<T> loop = new ReceiveLoop<>(this.source, subscriber);
+		ReceiveTask<T> task = new ReceiveTask<>(this.source, subscriber);
 		try {
-			subscriber.onSubscribe(loop);
+			subscriber.onSubscribe(task);
 		}
 		catch (Throwable ex) {
-			// §2.13: the subscription is cancelled, and no loop thread will close the Source
+			// §2.13: the subscription is cancelled, and no task thread will close the Source
 			closeSource();
 			throw ex;
 		}
-		if (loop.isCancelled()) {
+		if (task.isCancelled()) {
 			// Canceled from onSubscribe
-			loop.signalPendingError();
+			task.signalPendingError();
 			closeSource();
 			return;
 		}
 		try {
-			this.executor.execute(loop);
+			this.executor.execute(task);
 		}
 		catch (RejectedExecutionException ex) {
-			loop.rejected(ex);
+			task.rejected(ex);
 		}
 	}
 
@@ -92,10 +92,10 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 
 	/**
-	 * The receiving loop task, and the {@link Subscription} handed to the subscriber.
-	 * Items are emitted from this loop only, and that serializes signals.
+	 * The receive task and the {@link Subscription} handed to the {@code Subscriber}.
+	 * Items are emitted from this task only, serializing the Publisher signals.
 	 */
-	private static final class ReceiveLoop<T> implements Subscription, Runnable {
+	private static final class ReceiveTask<T> implements Subscription, Runnable {
 
 		private static final Logger logger = LoggerFactory.getLogger(SourcePublisher.class);
 
@@ -114,19 +114,19 @@ final class SourcePublisher<T> implements Publisher<T> {
 		/** Outstanding demand, {@code Long.MAX_VALUE} for unbounded. */
 		private final AtomicLong requested = new AtomicLong();
 
-		/** Holds a {@code request(n)} error to be signaled from the loop thread. */
+		/** Holds a {@code request(n)} error to be signaled from the receive thread. */
 		private final AtomicReference<@Nullable Throwable> pendingError = new AtomicReference<>();
 
-		/** Set in {@link #run()} to allow waking or interrupting the loop thread. */
-		private volatile @Nullable Thread loopThread;
+		/** Set in {@link #run()} to allow waking or interrupting the receive thread. */
+		private volatile @Nullable Thread receiveThread;
 
-		/** State variable manage interrupting the loop thread only while blocked on {@link Source#receiveNext()}. */
+		/** State variable manage interrupting the receive thread only while blocked on {@link Source#receiveNext()}. */
 		private final AtomicInteger phase = new AtomicInteger(IDLE);
 
 		private volatile boolean cancelled;
 
 
-		ReceiveLoop(Source<T> source, Subscriber<? super T> actual) {
+		ReceiveTask(Source<T> source, Subscriber<? super T> actual) {
 			this.source = source;
 			this.actual = actual;
 		}
@@ -137,7 +137,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		@Override
 		public void request(long n) {
 			if (n <= 0) {
-				// Cancel, and let the loop thread signal the error, so that it is not
+				// Cancel, and let the receive thread signal the error, so that it is not
 				// concurrent with an onNext in progress.
 				if (!this.cancelled) {
 					this.pendingError.compareAndSet(null, new IllegalArgumentException(
@@ -150,14 +150,14 @@ final class SourcePublisher<T> implements Publisher<T> {
 				long sum = r + n;
 				return (sum < 0 ? Long.MAX_VALUE : sum);
 			});
-			unpark(this.loopThread);
+			unpark(this.receiveThread);
 		}
 
 		/**
 		 * {@inheritDoc}
-		 * <p>Interrupts the receiving loop thread if it is blocked in receiveNext,
+		 * <p>Interrupts the receive thread if it is blocked in receiveNext,
 		 * or unparks it if in awaitDemand(). This avoids blocking, and allows
-		 * the loop thread instead to close the {@code Source} when it exits.
+		 * the receive thread instead to close the {@code Source} when it exits.
 		 */
 		@Override
 		public void cancel() {
@@ -165,7 +165,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 				return;
 			}
 			this.cancelled = true;
-			Thread thread = this.loopThread;
+			Thread thread = this.receiveThread;
 			if (thread == null) {
 				return;
 			}
@@ -183,7 +183,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 		/**
-		 * Unpark the loop thread unless we are on it in since it will check
+		 * Unpark the receive thread unless we are on it in since it will check
 		 * for demand and cancellation before it parking.
 		 */
 		private static void unpark(@Nullable Thread thread) {
@@ -214,11 +214,11 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 
-		// Receiving loop task methods
+		// Receive task methods
 
 		@Override
 		public void run() {
-			this.loopThread = Thread.currentThread();
+			this.receiveThread = Thread.currentThread();
 			boolean interrupted = false;
 			try {
 				while (awaitDemand()) {
@@ -246,7 +246,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 				error(ex);
 			}
 			finally {
-				this.loopThread = null;
+				this.receiveThread = null;
 				this.source.close();
 				if (interrupted) {
 					Thread.currentThread().interrupt();

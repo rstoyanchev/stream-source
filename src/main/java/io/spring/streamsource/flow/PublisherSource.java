@@ -31,7 +31,7 @@ final class PublisherSource<T> extends AbstractSource<T> {
 
 	private final BlockingQueueExchange<T> exchange;
 
-	private final ExchangeSubscriber subscriber = new ExchangeSubscriber();
+	private final BlockingQueueExchangeSubscriber subscriber = new BlockingQueueExchangeSubscriber();
 
 	private boolean subscribed;
 
@@ -73,12 +73,13 @@ final class PublisherSource<T> extends AbstractSource<T> {
 
 
 	/**
-	 * {@code Subscriber} that buffers items in a {@link BlockingQueueExchange}.
+	 * {@code Subscriber} that buffers items in a {@link BlockingQueueExchange} and
+	 * {@code Subscription} that propagates request/cancel upstream.
 	 */
-	private final class ExchangeSubscriber implements Subscriber<T> {
+	private final class BlockingQueueExchangeSubscriber implements Subscriber<T>, Subscription {
 
 		/** Marks the subscription as done (cancelled or terminated), including before it arrived. */
-		private static final Subscription CANCELLED = new Subscription() {
+		private static final Subscription DONE = new Subscription() {
 			@Override
 			public void request(long n) {
 			}
@@ -108,7 +109,7 @@ final class PublisherSource<T> extends AbstractSource<T> {
 		@Override
 		public void onNext(T item) {
 			Objects.requireNonNull(item, "Item must not be null");
-			if (this.subscription.get() == CANCELLED) {
+			if (this.subscription.get() == DONE) {
 				logger.debug("discarding item received after close: {}", item);
 				return;
 			}
@@ -159,22 +160,24 @@ final class PublisherSource<T> extends AbstractSource<T> {
 		 * Mark the subscription as done, and report whether it was active.
 		 */
 		private boolean terminate() {
-			return (this.subscription.getAndSet(CANCELLED) != CANCELLED);
+			return (this.subscription.getAndSet(DONE) != DONE);
 		}
 
 		// Methods for use from the receiving loop to signal to the upstream Publisher
 
-		void request(long n) {
+		@Override
+		public void request(long n) {
 			Subscription subscription = this.subscription.get();
-			if (subscription != null && subscription != CANCELLED) {
+			if (subscription != null && subscription != DONE) {
 				this.outstanding.addAndGet(n);
 				subscription.request(n);
 			}
 		}
 
-		void cancel() {
-			Subscription subscription = this.subscription.getAndSet(CANCELLED);
-			if (subscription != null && subscription != CANCELLED) {
+		@Override
+		public void cancel() {
+			Subscription subscription = this.subscription.getAndSet(DONE);
+			if (subscription != null && subscription != DONE) {
 				subscription.cancel();
 			}
 		}

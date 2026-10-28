@@ -22,7 +22,7 @@ import org.jspecify.annotations.Nullable;
  * if necessary to await demand, and unparked on the next request signal.
  *
  * <p>A cancel signal works by interrupting the receiving thread and returning
- * without blocking. The {@code Source} is then closed when the receiving loop
+ * without blocking. The {@code Source} is then closed when the receiving task
  * exits. If the {@code Source} does not respond to interruption, the receiving
  * thread remains blocked and the cancellation is not noticed until it is ready
  * to receive again.
@@ -76,7 +76,7 @@ public abstract class FlowSourceAdapter {
 	/**
 	 * Variant of {@link #toPublisher(Source)} for use with Java &lt; 21.
 	 * @param source the source to receive from
-	 * @param executor the executor to run the receive loop thread on;
+	 * @param executor the executor to run the receiving thread on;
 	 * the caller is responsible for the lifecycle of the executor
 	 * @return a Publisher that emits the items received from the Source
 	 * @param <T> the type of items received
