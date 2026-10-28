@@ -19,22 +19,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@link Publisher} that receives from a pull-style {@link Source} on an
- * {@link Executor}, turning the blocking receive loop into Reactive Streams signals.
- * Created through {@link FlowSourceAdapter#toPublisher(Source)}.
+ * {@link Publisher} that receives from a {@link Source} on a background thread,
+ * turning the blocking receive loop into Reactive Streams signals.
  *
- * <p>The loop thread is where the blocking happens, and demand is what it waits for:
- * with no outstanding {@code request(n)} it parks rather than calling
- * {@link Source#receiveNext()}, so nothing is received that nobody asked for. Because
- * the loop parks, the executor must be one where blocking is allowed.
+ * <p>See {@link FlowSourceAdapter} for more details.
  *
- * <p>Waiting for demand also means the end of the stream is not discovered until it is
- * asked for: {@code onComplete} is signalled by the receive that follows the last item,
- * which requires demand like any other.
- *
- * <p>A Source has a single consumer, so this Publisher accepts a single subscriber.
- *
- * @param <T> the type of items received through the Source
+ * @param <T> the type of items received
  */
 final class SourcePublisher<T> implements Publisher<T> {
 
@@ -70,7 +60,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 			throw ex;
 		}
 		if (loop.isCancelled()) {
-			// Cancelled from onSubscribe: no loop thread will close the Source either
+			// Canceled from onSubscribe
 			loop.signalPendingError();
 			closeSource();
 			return;
@@ -84,7 +74,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 	}
 
 	/**
-	 * Close the Source on the executor, since the subscribing thread may be an NIO thread.
+	 * Close the Source on the Executor, subscribing thread may be non-blocking.
 	 */
 	private void closeSource() {
 		try {
@@ -102,8 +92,8 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 
 	/**
-	 * The receive loop, and the {@link Subscription} handed to the subscriber. Items are
-	 * emitted from the loop thread only, which is what serializes the signals.
+	 * The receiving loop task, and the {@link Subscription} handed to the subscriber.
+	 * Items are emitted from this loop only, and that serializes signals.
 	 */
 	private static final class ReceiveLoop<T> implements Subscription, Runnable {
 
@@ -121,16 +111,16 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 		private final Subscriber<? super T> actual;
 
-		/** Outstanding demand, {@code Long.MAX_VALUE} meaning unbounded. */
+		/** Outstanding demand, {@code Long.MAX_VALUE} for unbounded. */
 		private final AtomicLong requested = new AtomicLong();
 
-		/** Error from an invalid {@code request(n)}, signalled by the loop thread. */
+		/** Holds a {@code request(n)} error to be signaled from the loop thread. */
 		private final AtomicReference<@Nullable Throwable> pendingError = new AtomicReference<>();
 
-		/** Set by {@link #run()} itself, so the signal side has something to wake or interrupt. */
+		/** Set in {@link #run()} to allow waking or interrupting the loop thread. */
 		private volatile @Nullable Thread loopThread;
 
-		/** Whether the loop is inside {@link Source#receiveNext()}, the only place {@link #cancel()} interrupts. */
+		/** State variable manage interrupting the loop thread only while blocked on {@link Source#receiveNext()}. */
 		private final AtomicInteger phase = new AtomicInteger(IDLE);
 
 		private volatile boolean cancelled;
@@ -142,7 +132,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 
-		// Subscriber side, called from any thread
+		// Subscription methods, called by reactive subscriber on any thread
 
 		@Override
 		public void request(long n) {
@@ -165,9 +155,9 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 		/**
 		 * {@inheritDoc}
-		 * <p>Never blocks the calling thread. A receive in progress is interrupted, and
-		 * the loop thread then closes the Source. If the Source does not respond to
-		 * interruption, the receive continues until it returns, and its item is discarded.
+		 * <p>Interrupts the receiving loop thread if it is blocked in receiveNext,
+		 * or unparks it if in awaitDemand(). This avoids blocking, and allows
+		 * the loop thread instead to close the {@code Source} when it exits.
 		 */
 		@Override
 		public void cancel() {
@@ -175,14 +165,10 @@ final class SourcePublisher<T> implements Publisher<T> {
 				return;
 			}
 			this.cancelled = true;
-			// Closing here would block the caller, which may be an event loop, and use the
-			// Source from a second thread; the loop thread closes it in run() instead
 			Thread thread = this.loopThread;
 			if (thread == null) {
 				return;
 			}
-			// Only a receive needs interrupting: a parked awaitDemand() needs an unpark,
-			// and the subscriber's own code is followed by a check of cancelled anyway
 			if (this.phase.compareAndSet(RECEIVING, INTERRUPTING)) {
 				try {
 					thread.interrupt();
@@ -197,8 +183,8 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 		/**
-		 * Unpark the loop thread, unless called on it: it checks for demand and
-		 * cancellation before it parks.
+		 * Unpark the loop thread unless we are on it in since it will check
+		 * for demand and cancellation before it parking.
 		 */
 		private static void unpark(@Nullable Thread thread) {
 			if (thread != null && thread != Thread.currentThread()) {
@@ -228,7 +214,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 
-		// Loop side, on the executor thread
+		// Receiving loop task methods
 
 		@Override
 		public void run() {
@@ -251,8 +237,8 @@ final class SourcePublisher<T> implements Publisher<T> {
 				signalPendingError();
 			}
 			catch (InterruptedException ex) {
-				// An interrupt from cancel() was cleared in receiveNext(); any other is
-				// restored after close()
+				// receiveNext clears the interrupt from cancel()
+				// interrupts from awaitDemand to be restored after close()
 				interrupted = !this.cancelled;
 				error(ex);
 			}
@@ -260,7 +246,6 @@ final class SourcePublisher<T> implements Publisher<T> {
 				error(ex);
 			}
 			finally {
-				// The thread may run other tasks from here on
 				this.loopThread = null;
 				this.source.close();
 				if (interrupted) {
@@ -272,14 +257,14 @@ final class SourcePublisher<T> implements Publisher<T> {
 		private boolean receiveNext() throws IOException, InterruptedException {
 			this.phase.set(RECEIVING);
 			try {
-				// Checked after publishing the phase: a cancel() that saw IDLE did not interrupt
+				// Check cancelled after setting the phase: cancel() that saw IDLE would not interrupt
 				return (!this.cancelled && this.source.receiveNext());
 			}
 			finally {
 				if (!this.phase.compareAndSet(RECEIVING, IDLE)) {
-					// cancel() got there first: wait for its interrupt to land, then clear
-					// it, so that it cannot reach the subscriber, close(), or whatever the
-					// executor runs next on this thread
+					// cancel() got there first: wait for its interrupt to land, then
+					// clear it, so that it cannot reach the subscriber, close(), or
+					// whatever the executor runs next on this thread
 					while (this.phase.get() == INTERRUPTING) {
 						Thread.yield();
 					}
@@ -290,16 +275,15 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 		/**
-		 * Park until there is demand to receive one more item, and report whether the
-		 * loop should carry on. A permit made available by {@link #unpark()} before
-		 * this parks is not lost, so a {@code request(n)} racing with the check below
-		 * still wakes it.
+		 * Park until there is demand to receive, and return whether to carry on.
+		 * A permit made available by {@link #unpark()} just before this parks
+		 * and is not lost in a race with {@code request(n)}.
 		 */
 		private boolean awaitDemand() throws InterruptedException {
 			while (!this.cancelled && this.requested.get() == 0) {
 				LockSupport.park();
-				// Not from cancel(), which only unparks here; an executor shutting down,
-				// say, would otherwise make every park() return at once and spin
+				// cancel() interrupts only receiveNext
+				// any interrupt here is different (e.g. executor shutting down),
 				if (Thread.interrupted()) {
 					throw new InterruptedException();
 				}
@@ -326,9 +310,8 @@ final class SourcePublisher<T> implements Publisher<T> {
 					signalPendingError();
 				}
 				else {
-					// Nobody left to report to, and typically the Source unwinding from
-					// the interrupt that cancel() sent, like a ClosedByInterruptException
-					// from an interrupted read.
+					// Source interrupted by cancel() and handling an interruption related exception, or
+					// cancellation racing with a Source error
 					logger.debug("cancelled, discarding {}", ex.toString());
 				}
 			}

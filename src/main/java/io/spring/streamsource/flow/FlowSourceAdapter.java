@@ -8,49 +8,60 @@ import io.spring.streamsource.Source;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Adapters between {@link Source} and JDK {@link java.util.concurrent.Flow.Publisher},
- * the Reactive Streams interfaces shipped with Java.
+ * Main class that provides adapters to bridge between {@link Source} and JDK
+ * {@link java.util.concurrent.Flow.Publisher}.
  *
- * <p>A {@code Source} and a {@code Publisher} describe the same stream from opposite
- * ends: one is pulled by a blocking consumer, the other pushes to a subscriber that
- * signals demand. Both directions of the adapter preserve backpressure, so neither side
- * receives items nobody asked for:
- * <ul>
- * <li>{@link #toPublisher(Source)} receives on a background thread, and only while there
- * is outstanding demand. Cancelling closes the Source.
- * <li>{@link #toSource(Publisher)} subscribes on the first receive, and requests as many
- * items as the buffer can hold, one more each time the consumer takes one out. Closing
- * the Source cancels the subscription.
- * </ul>
+ * <p><strong>Source to Publisher Adapter</strong></p>
+ *
+ * This adapter is a {@link Publisher} that receives from a {@link Source} on a
+ * background thread, turning the blocking receive loop into Reactive Streams
+ * signals.
+ *
+ * <p>The receiving thread absorbs the blocking necessary to wait for demand.
+ * The thread is parked before each call to {@link Source#receiveNext()},
+ * if necessary to await demand, and unparked on the next request signal.
+ *
+ * <p>A cancel signal works by interrupting the receiving thread and returning
+ * without blocking. The {@code Source} is then closed when the receiving loop
+ * exits. If the {@code Source} does not respond to interruption, the receiving
+ * thread remains blocked and the cancellation is not noticed until it is ready
+ * to receive again.
+ *
+ * <p>Note that since the background thread parks before
+ * {@link Source#receiveNext()} if there is no demand, {@code onComplete} and
+ * {@code onError} signals are only discovered after the subscriber signals
+ * non-zero demand.
+ *
+ * <p><strong>Publisher to Source Adapter</strong></p>
+ *
+ * This adapter subscribes to a Reactive Streams {@link Publisher}, buffers
+ * items in a {@link BlockingQueueExchange}, and exposes those items to a
+ * blocking consumer as {@link Source}.
+ *
+ * <p>The capacity of the {@code BlockingQueueExchange} doubles as the reactive
+ * demand window. The initial request equals the {@code capacity}, and each time
+ * the consumer takes an item out, another is requested. At any time, the
+ * capacity equals the number of buffered items plus the outstanding demand.
+ *
+ * <p>The use of {@code BlockingQueueExchange} allows published items to be
+ * handled without blocking or a separate thread. The blocking consumer blocks
+ * on its own thread if necessary to receive the next item.
  */
 public abstract class FlowSourceAdapter {
 
 	private static final @Nullable Executor defaultExecutor = createDefaultExecutor();
+
 
 	private FlowSourceAdapter() {
 	}
 
 
 	/**
-	 * Adapt a {@link Source} to a {@link Publisher} that receives from it on a virtual
-	 * thread.
-	 * <p>The Source is not touched until the Publisher is subscribed to, and is closed
-	 * when the stream ends, fails, or is cancelled. Since a Source has a single consumer,
-	 * the returned Publisher accepts a single subscriber, and a second one is rejected
-	 * with an {@link IllegalStateException}.
-	 * <p>The end of the stream is discovered by a receive like any other, so it is
-	 * signalled by the {@code request(n)} that follows the last item: a subscriber that
-	 * stops requesting after exactly as many items as the Source had does not see
-	 * {@code onComplete} until it asks again.
-	 * <p>Cancelling never blocks the calling thread: a receive in progress is interrupted,
-	 * and the receive loop then closes the Source. If the Source does not respond to
-	 * interruption, the receive continues until it returns, and the item it returns, if
-	 * any, is discarded. See {@link Thread#interrupt()} for the blocking operations that
-	 * respond to interruption.
+	 * Adapt a {@link Source} to a {@link Publisher}.
 	 * <p>Requires Java 21+, use {@link #toPublisher(Source, Executor)} on Java &lt; 21.
 	 * @param source the source to receive from
-	 * @return a Publisher that emits the items of the Source
-	 * @param <T> the type of items
+	 * @return a Publisher that emits the items received from the Source
+	 * @param <T> the type of items received
 	 * @throws IllegalStateException if virtual threads are not supported
 	 */
 	public static <T> Publisher<T> toPublisher(Source<T> source) {
@@ -63,36 +74,30 @@ public abstract class FlowSourceAdapter {
 	}
 
 	/**
-	 * Variant of {@link #toPublisher(Source)} with the {@code Executor} to receive on.
-	 * The receive loop blocks, and parks while there is no demand, so this must be an
-	 * executor where blocking is allowed, compatible with Java &lt; 21. The caller
-	 * remains responsible for its lifecycle.
+	 * Variant of {@link #toPublisher(Source)} for use with Java &lt; 21.
 	 * @param source the source to receive from
-	 * @param executor the executor that runs the receive loop
-	 * @return a Publisher that emits the items of the Source
-	 * @param <T> the type of items
+	 * @param executor the executor to run the receive loop thread on;
+	 * the caller is responsible for the lifecycle of the executor
+	 * @return a Publisher that emits the items received from the Source
+	 * @param <T> the type of items received
 	 */
 	public static <T> Publisher<T> toPublisher(Source<T> source, Executor executor) {
 		return new SourcePublisher<>(source, executor);
 	}
 
 	/**
-	 * Adapt a {@link Publisher} to a {@link Source} that buffers up to
-	 * {@link BlockingQueueExchange#DEFAULT_CAPACITY} items ahead of the consumer.
-	 * @param publisher the publisher to subscribe to
-	 * @return a Source over the items of the publisher
-	 * @param <T> the type of items
+	 * Adapt a {@link Publisher} to a {@link Source} with the capacity set to
+	 * {@link BlockingQueueExchange#DEFAULT_CAPACITY}.
+	 * @param publisher the publisher to subscribe to and receive from
+	 * @return a Source over the items from the publisher
+	 * @param <T> the type of items received
 	 */
 	public static <T> Source<T> toSource(Publisher<T> publisher) {
 		return toSource(publisher, BlockingQueueExchange.DEFAULT_CAPACITY);
 	}
 
 	/**
-	 * Variant of {@link #toSource(Publisher)} with the number of items to buffer ahead
-	 * of the consumer, which is also the demand the publisher is given.
-	 * <p>The subscription happens on the first receive, and is cancelled when the
-	 * Source is closed. The publisher keeps pushing on its own thread, into a buffer
-	 * the consumer pulls from.
+	 * Variant of {@link #toSource(Publisher)} with a configurable capacity.
 	 * @param publisher the publisher to subscribe to
 	 * @param capacity the number of items to buffer, and to request
 	 * @return a Source over the items of the publisher
@@ -101,6 +106,7 @@ public abstract class FlowSourceAdapter {
 	public static <T> Source<T> toSource(Publisher<T> publisher, int capacity) {
 		return new PublisherSource<>(publisher, capacity);
 	}
+
 
 	private static @Nullable Executor createDefaultExecutor() {
 		try {

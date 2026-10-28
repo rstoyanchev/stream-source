@@ -15,20 +15,13 @@ import io.spring.streamsource.Source;
 import org.jspecify.annotations.Nullable;
 
 /**
- * {@link Source} that subscribes to a Reactive Streams {@link Publisher} and buffers
- * what it pushes, so that the consumer can pull. Created through
- * {@link FlowSourceAdapter#toSource(Publisher)}.
+ * A {@link Source} that subscribes to a Reactive Streams {@link Publisher},
+ * buffers items in a {@link BlockingQueueExchange}, and exposes the items to
+ * a blocking consumer.
  *
- * <p>The buffer is a {@link BlockingQueueExchange}, and it doubles as the demand window:
- * {@code capacity} items are requested up front, and one more each time the consumer
- * takes an item out. So the number of buffered items plus the outstanding demand never
- * exceeds the capacity, {@code onNext} always has room, and nothing has to block on the
- * publisher's thread.
+ * <p>See {@link FlowSourceAdapter} for more details.
  *
- * <p>No thread is needed for this direction. The publisher pushes on whatever thread it
- * already had, and the consumer's own thread is the one that blocks.
- *
- * @param <T> the type of items received through the Source
+ * @param <T> the type of items published
  */
 final class PublisherSource<T> extends AbstractSource<T> {
 
@@ -80,14 +73,11 @@ final class PublisherSource<T> extends AbstractSource<T> {
 
 
 	/**
-	 * The subscriber that moves items into the exchange, and records how the publisher
-	 * ended in it. The exchange then applies this package's error contract: an
-	 * {@code IOException} or a {@code RuntimeException} reaches the consumer unchanged,
-	 * anything else wrapped in an {@code IllegalStateException}.
+	 * {@code Subscriber} that buffers items in a {@link BlockingQueueExchange}.
 	 */
 	private final class ExchangeSubscriber implements Subscriber<T> {
 
-		/** Marks the subscription as cancelled or terminated, including before it arrived. */
+		/** Marks the subscription as done (cancelled or terminated), including before it arrived. */
 		private static final Subscription CANCELLED = new Subscription() {
 			@Override
 			public void request(long n) {
@@ -123,21 +113,19 @@ final class PublisherSource<T> extends AbstractSource<T> {
 				return;
 			}
 			if (this.outstanding.decrementAndGet() < 0) {
-				// Only reachable if the publisher sent more than it was asked for
+				// reachable if the publisher sent more than asked
 				demandExceeded();
 				return;
 			}
 			try {
 				if (!exchange.offer(item)) {
-					// The demand accounting above should make this unreachable. Should it
-					// break, offer fails where send would park this thread on a full
-					// queue. Both take the queue's locks, but unlike send, offer does not
-					// throw when this thread happens to have its interrupt flag set
+					// demand accounting above should make this unreachable, but
+					// protect against a publisher that sends more
 					demandExceeded();
 				}
 			}
 			catch (SinkCompleteException ex) {
-				// The consumer closed the Source while this item was in flight
+				// consumer closed the Source
 				logger.debug("discarding item received after close: {}", item);
 				cancel();
 			}
@@ -173,6 +161,8 @@ final class PublisherSource<T> extends AbstractSource<T> {
 		private boolean terminate() {
 			return (this.subscription.getAndSet(CANCELLED) != CANCELLED);
 		}
+
+		// Methods for use from the receiving loop to signal to the upstream Publisher
 
 		void request(long n) {
 			Subscription subscription = this.subscription.get();
