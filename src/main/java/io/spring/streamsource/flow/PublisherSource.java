@@ -164,7 +164,7 @@ final class PublisherSource<T> extends AbstractSource<T> {
 			return (this.subscription.getAndSet(DONE) != DONE);
 		}
 
-		// Subscription methods to signal from the receiving loop
+		// Subscription methods exposing the upstream Subscription to the Source consumer
 
 		@Override
 		public void request(long n) {

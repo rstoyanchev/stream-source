@@ -114,15 +114,15 @@ final class SourcePublisher<T> implements Publisher<T> {
 		/** Outstanding demand, {@code Long.MAX_VALUE} for unbounded. */
 		private final AtomicLong requested = new AtomicLong();
 
-		/** Holds a {@code request(n)} error to be signaled from the receive thread. */
+		/** Holds a {@code request(n)} error to be signaled from the receiving thread. */
 		private final AtomicReference<@Nullable Throwable> pendingError = new AtomicReference<>();
 
 		private volatile boolean cancelled;
 
-		/** Set in {@link #run()} to allow waking or interrupting the receive thread. */
+		/** Set in {@link #run()} to allow waking or interrupting the receiving thread. */
 		private volatile @Nullable Thread receiveThread;
 
-		/** State variable manage interrupting the receive thread only while blocked on {@link Source#receiveNext()}. */
+		/** State variable for interrupting the receiving thread only while blocked on {@link Source#receiveNext()}. */
 		private final AtomicInteger phase = new AtomicInteger(IDLE);
 
 		ReceiveTask(Source<T> source, Subscriber<? super T> actual) {
@@ -138,6 +138,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 		/**
+		 * Handle an early failure where the task was not accepted for execution.
 		 *
 		 */
 		public void handleRejectedExecution(RejectedExecutionException ex) {
@@ -172,7 +173,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 			}
 			catch (InterruptedException ex) {
 				// receiveNext clears the interrupt from cancel()
-				// interrupts from awaitDemand to be restored after close()
+				// ensure any other, e.g. awaitDemand, is restored after close()
 				interrupted = !this.cancelled;
 				error(ex);
 			}
@@ -196,7 +197,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		private boolean awaitDemand() throws InterruptedException {
 			while (!this.cancelled && this.requested.get() == 0) {
 				LockSupport.park();
-				// cancel() interrupts only receiveNext
+				// cancel() interrupts only receiveNext,
 				// any interrupt here is different (e.g. executor shutting down),
 				if (Thread.interrupted()) {
 					throw new InterruptedException();
@@ -266,7 +267,7 @@ final class SourcePublisher<T> implements Publisher<T> {
 		@Override
 		public void request(long n) {
 			if (n <= 0) {
-				// Cancel, and let the receive thread signal the error, so that it is not
+				// Cancel, and let the receiving thread signal the error, so that it is not
 				// concurrent with an onNext in progress.
 				if (!this.cancelled) {
 					this.pendingError.compareAndSet(null, new IllegalArgumentException(
@@ -284,9 +285,9 @@ final class SourcePublisher<T> implements Publisher<T> {
 
 		/**
 		 * {@inheritDoc}
-		 * <p>Interrupts the receive thread if it is blocked in receiveNext,
+		 * <p>Interrupts the receiving thread if it is blocked in receiveNext,
 		 * or unparks it if in awaitDemand(). This avoids blocking, and allows
-		 * the receive thread instead to close the {@code Source} when it exits.
+		 * the receiving thread instead to close the {@code Source} when it exits.
 		 */
 		@Override
 		public void cancel() {
@@ -312,8 +313,8 @@ final class SourcePublisher<T> implements Publisher<T> {
 		}
 
 		/**
-		 * Unpark the receive thread unless we are on it in since it will check
-		 * for demand and cancellation before it parking.
+		 * Unpark the receiving thread unless we are on it since the receiving
+		 * thread will check for demand and cancellation before parking.
 		 */
 		private static void unpark(@Nullable Thread thread) {
 			if (thread != null && thread != Thread.currentThread()) {
