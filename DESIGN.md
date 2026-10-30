@@ -11,7 +11,7 @@ The key building blocks are:
 - [ActiveSource](#activesource): starts a [Producer](#producer) task in a background thread to push into an `Exchange` that a consumer can receive from.
 - [MultiSink](#multisink): dispatches items pushed into a `Sink` to any number of `Sink` listeners concurrently, without holding up the producer.
 
-For further insight and context on the design, see [FAQ.md](FAQ.md).
+For further insight and context, see [FAQ.md](FAQ.md).
 
 
 # Source
@@ -36,10 +36,9 @@ try (Source<String> source = ...) {
 }
 ```
 
-## Source Implementation (Producer)
+## Source Implementations
 
-Implementing `Source` is the easiest way to create a producer.
-The producer implements `Source`, and the consumer receives directly from it.
+Implementing `Source` is the easiest way to create a producer that consumers can receive from directly.
 
 ```
   Producer                                       Consumer
@@ -106,14 +105,13 @@ After that it becomes closed and `receiveNext` throws the exception.
 
 
 
-## Ownership of the data
+## Ownership of Data
 
-If an `Exchange` is completed from the `Sink` side it remains open until all items have been received.
-By contrast, if it is closed from the `Source` side, it is closed immediately and remaining items discarded.
-
-The asymmetric nature of the `Sink` and `Source` side reflects ownership of the data.
-The producer can only send items and signal completion.
-Once items are placed in the `Exchange`, they belong to the consumer who can decide to receive or discard them.
+An `Exchange` completed from the `Sink` side remains open until all items are received.
+By contrast, closing from the `Source` side is immediate and remaining items discarded.
+The asymmetric nature of the `Sink` and `Source` sides reflects ownership of the data.
+The producer can send items and signal completion only.
+Once items are placed in the `Exchange`, they belong to the consumer who can receive or discard them.
 
 
 # ActiveSource
