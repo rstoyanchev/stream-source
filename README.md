@@ -20,7 +20,8 @@ The Structured Concurrency JEP mentions "channels" as a non-goal that may be pro
 We aim to fill that gap in the interim with a solution for the use cases we see.
 When there is a concrete proposal in the JDK, we will adapt accordingly.
 
-The *Stream Source* library provides imperative contracts and building blocks for data streaming.
+The *Stream Source* library provides contracts and building blocks for data streaming in imperative style.
+In addition, there are adapters to bridge to Reactive Streams through the JDK's `Flow` contracts.
 
 For more deatils, see [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 

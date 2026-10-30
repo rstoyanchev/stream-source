@@ -10,6 +10,7 @@ The key building blocks are:
 - [Exchange](#exchange): a pipe with [Sink](#sink) side for sending and a `Source` side for receiving.
 - [ActiveSource](#activesource): starts a [Producer](#producer) task in a background thread to push into an `Exchange` that a consumer can receive from.
 - [MultiSink](#multisink): dispatches items pushed into a `Sink` to any number of `Sink` listeners concurrently, without holding up the producer.
+- [Reactive Streams](#reactive-streams-adapters): bridge to Reactive Streams `Publisher` in both directions.
 
 For further insight and context, see [FAQ.md](FAQ.md).
 
@@ -207,3 +208,15 @@ For earlier versions, an `ExecutorService` is expected to be passed in.
 
 `MultiSink` accepts dynamic registration of listeners after it has started.
 This is useful for pub-sub on a server where listeners come and go.
+
+
+# Reactive Streams Adapters
+
+There is a wide ecosystem of Reactive Streams Publishers.
+This library provides a bridge that can expose those in imperative code as `Source`.
+There are adapters in both directions, to and from Reactive Streams.
+
+[FlowSourceAdapter](src/main/java/io/spring/streamsource/flow/FlowSourceAdapter.java) is the main class for the bridge.
+It uses `java.util.concurrent.Flow` interfaces from the JDK library, with no extra dependency.
+It's easy to connect further to `org.reactivestreams.Publisher` and Reactor `Flux` via built-in adapters included in each.
+
