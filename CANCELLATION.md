@@ -6,10 +6,10 @@ There are cases where *stream-source* needs to stop a background task it started
   and it must be stopped if the downstream `Subscriber` cancels.
 
 In Java, [Thread interrupt](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Thread.html#interrupt()) is the mechanism to stop an executing thread.
-It is what `Future.cancel(true)` and `ExecutorService.shutdownNow()` do, and it is what [structured concurrency](https://openjdk.org/jeps/543#Cancellation) uses as well.
+It is what `Future.cancel(true)` and `ExecutorService.shutdownNow()` do, and it is what [Structured Concurrency](https://openjdk.org/jeps/543#Cancellation) uses as well.
 
 Thread interrupt is not equally effective everywhere.
-Whether it unblocks a thread, and what happens to the underlying resource, depends on the JDK API, the type of resource, and whether the thread is platform or virtual thread.
+Whether it unblocks a thread, and what happens to the underlying resource, depends on the JDK API, the type of resource, and whether the thread is platform or virtual.
 
 Here we provide a brief introduction to the topic:
 
@@ -30,15 +30,12 @@ There are three possible outcomes from interrupting a blocked method call:
 
 - **Unblocked, resource intact** — the call throws, but whatever it was waiting on remains usable.
   This is typical for `java.util.concurrent` utilities.
-- **Unblocked, resource** — the call throws, and the underlying resource is closed.
+- **Unblocked, resource closed** — the call throws, and the underlying resource is closed.
   This is typical where interrupts are supported.
 - **Ignored** — the interrupt status is set, but the thread remains blocked until the call returns on its own.
 
 Code that catches `InterruptedException` should not swallow it.
 If it cannot rethrow, it should restore the interrupt status with `Thread.currentThread().interrupt()`, so that code further up can notice it.
-
-Note that `CompletableFuture.cancel(true)` does not interrupt the thread running the task.
-The `mayInterruptIfRunning` argument has no effect in that implementation.
 
 
 # Interrupt Support in JDK Libraries 
@@ -145,8 +142,9 @@ Some wait mechanisms ignore interrupts completely:
 
 # What This Means for stream-source
 
-When the `ActiveSource` producer task, or the receiving task of a `Flow.Publisher` is cancelled, the task is interrupted.
-The interrupt may or may not be take effect immediately, as described in the previous section [Support for Interruption](#interrupt-support-in-jdk-libraries-).
+When an `ActiveSource` is closed, the background producer task is interrupted.
+When a `Flow.Publisher` is cancelled, the background receiving task is interrupted.
+The interrupt may or may not take effect immediately, as described in the previous section [Support for Interruption](#interrupt-support-in-jdk-libraries-).
 
 It works significantly better on Java 21+, where tasks run on virtual threads by default, and therefore blocking operations on classic socket I/O respond to interrupts.
 
@@ -172,7 +170,8 @@ However, it is possible to do it through a `Source` decorator.
 
 ## Timed Polling
 
-If the resource supports receiving with a timeout, a `Source` can receive with a short timeout, and check the interrupt status in between.
+If a resource supports receiving with a timeout, a `Source` can receive in a loop with a short timeout, and check the interrupt status in between.
+
 For example, a `Socket` with `SO_TIMEOUT` on a platform thread:
 
 ```java
