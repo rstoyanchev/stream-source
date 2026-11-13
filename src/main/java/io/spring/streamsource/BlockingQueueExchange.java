@@ -7,9 +7,19 @@ import java.util.concurrent.LinkedBlockingQueue;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A {@link BlockingQueue}-backed {@link Exchange}. A {@code BlockingQueueExchange}
- * only maintains the queue of items — it has no knowledge of what fills it or
- * what drains it.
+ * A {@link BlockingQueue}-backed {@link Exchange}.
+ *
+ * <p>The queue is bounded. Items are received in the order they were sent.
+ * When the queue is full, {@link #send} blocks until the consumer makes room,
+ * and when it is empty, {@link #receiveNext()} blocks until an item is sent or
+ * the Exchange is completed. This blocking is the backpressure between
+ * producer and consumer. The capacity is
+ * {@value #DEFAULT_CAPACITY} items unless specified otherwise.
+ *
+ * <p>The {@code Sink} side is for a single producer thread, and the
+ * {@code Source} side for a single consumer thread, which must be different
+ * threads, see {@link Exchange}. Completion does not block, even when the
+ * queue is full.
  *
  * @param <T> the type of items passed through the Exchange
  */
@@ -42,7 +52,8 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 	/**
 	 * Create an instance with the given capacity.
 	 * @param capacity the number of items the Exchange can hold before
-	 * {@link #send(Object)} blocks
+	 * {@link #send(Object)} blocks, must be greater than zero
+	 * @throws IllegalArgumentException if the capacity is not greater than zero
 	 */
 	public BlockingQueueExchange(int capacity) {
 		this.queue = new LinkedBlockingQueue<>(capacity);
