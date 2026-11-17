@@ -27,9 +27,10 @@ import java.io.IOException;
  * }
  * </pre>
  *
- * <p>Callers should not assume that implementations support concurrent use
- * unless explicitly stated by the implementation. That means implementations
- * can assume serial calls, but may choose to support concurrent calls.
+ * <p>Callers should not assume that a Sink supports concurrent use unless that
+ * is explicitly stated as supported by the implementation. That means
+ * implementations can assume serial calls, but may also choose to support
+ * concurrent calls.
  *
  * <p>Sink is typically backed by {@link Exchange}, which enables a hand-off
  * between an independent producer and consumer.

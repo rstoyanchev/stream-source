@@ -23,10 +23,8 @@ import java.io.IOException;
  *
  * <p>The {@code Source} receiving loop is intended to run on a single thread,
  * with {@link #receiveNext()} and {@link #next()} called in a sequence.
- * If necessary, a blocked receive may be cancelled by interrupting the
- * receiving thread, see
+ * A blocked receive may be cancelled by interrupting the receiving thread, see
  * <a href="https://github.com/spring-projects-experimental/stream-source/blob/main/CANCELLATION.md">CANCELLATION.md</a>.
- * In addition, {@link #close()} may be called from a different thread.
  *
  * <p>To implement a {@code Source}, extend {@link AbstractSource}.
  * For an independent producer-consumer hand-off, see {@link Exchange}.
@@ -76,11 +74,6 @@ public interface Source<T> extends AutoCloseable {
 	 * {@link #next()} cannot be relied on to return a received item.
 	 * <p>This method is idempotent, and does not throw checked exceptions.
 	 * Failures to release resources are not propagated.
-	 * <p>A blocked receive may be cancelled by interrupting the receiving
-	 * thread. In addition, {@code close()} may be called from a different
-	 * thread. That's currently supported for subclasses of
-	 * {@link AbstractSource}, but not for {@link BlockingQueueExchange},
-	 * see <a href="https://github.com/spring-projects-experimental/stream-source/issues/9">GitHub issue</a>.
 	 * <p>Closing an {@link Exchange} from the Source side discards items that
 	 * were sent but not yet received, and causes further calls to
 	 * {@link Sink#send} to fail with {@link SinkCompleteException}.
