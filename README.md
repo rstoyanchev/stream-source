@@ -42,7 +42,7 @@ To use *Stream Source*, add the following dependency:
 <dependency>
     <groupId>io.spring.streamsource</groupId>
     <artifactId>stream-source</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
 </dependency>
 ```
 

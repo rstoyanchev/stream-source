@@ -8,7 +8,7 @@ apply from: "$rootDir/gradle/publishing.gradle"
 
 description = 'Stream Source'
 group = 'io.spring.streamsource'
-version = '0.1.0-SNAPSHOT'
+version = '0.8.0-SNAPSHOT'
 
 ext {
 	// Test dependencies versions
