@@ -238,7 +238,7 @@ public class BlockingQueueExchangeTests {
 	}
 
 	@Test
-	void interruptedSendCompletesExceptionally() {
+	void interruptedSendDoesNotComplete() throws IOException, InterruptedException {
 		try (BlockingQueueExchange<String> exchange = new BlockingQueueExchange<>()) {
 			Sink<String> sink = exchange;
 			Source<String> source = exchange;
@@ -246,8 +246,13 @@ public class BlockingQueueExchangeTests {
 			Thread.currentThread().interrupt();
 
 			assertThatExceptionOfType(InterruptedException.class).isThrownBy(() -> sink.send("item 1"));
-			assertThatExceptionOfType(RuntimeException.class)
-					.isThrownBy(source::receiveNext).withMessage("Sending interrupted");
+
+			sink.send("item 2");
+			sink.complete();
+
+			assertThat(source.receiveNext()).isTrue();
+			assertThat(source.next()).isEqualTo("item 2");
+			assertThat(source.receiveNext()).isFalse();
 		}
 	}
 

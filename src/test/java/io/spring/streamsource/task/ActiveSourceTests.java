@@ -6,8 +6,10 @@ import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.spring.streamsource.Source;
 import org.junit.jupiter.api.Test;
@@ -85,6 +87,48 @@ public class ActiveSourceTests {
 			assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
 			assertThat(produced).isFalse();
 		}
+	}
+
+
+	@Test
+	public void interruptedSendDoesNotFailOtherSenders() throws Exception {
+		CountDownLatch firstItemSent = new CountDownLatch(1);
+		CountDownLatch cancelledTaskDone = new CountDownLatch(1);
+		AtomicReference<Throwable> cancelledTaskFailure = new AtomicReference<>();
+
+		Producer<String> producer = sink -> {
+			try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+				Future<?> cancelledTask = executor.submit(() -> {
+					try {
+						sink.send("a");
+						firstItemSent.countDown();
+						sink.send("b"); // blocks: capacity 1, and the consumer is not receiving yet
+					}
+					catch (Throwable ex) {
+						cancelledTaskFailure.set(ex);
+					}
+					finally {
+						cancelledTaskDone.countDown();
+					}
+				});
+				firstItemSent.await();
+				cancelledTask.cancel(true);
+				cancelledTaskDone.await();
+
+				executor.submit(() -> {
+					sink.send("c");
+					sink.send("d");
+					return null;
+				}).get();
+			}
+		};
+
+		try (Source<String> source = ActiveSource.fromProducer(producer).capacity(1).start()) {
+			cancelledTaskDone.await();
+			assertThat(toList(source)).containsExactly("a", "c", "d");
+		}
+
+		assertThat(cancelledTaskFailure.get()).isInstanceOf(InterruptedException.class);
 	}
 
 

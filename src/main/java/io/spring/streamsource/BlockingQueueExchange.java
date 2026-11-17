@@ -71,13 +71,8 @@ public final class BlockingQueueExchange<T> implements Exchange<T> {
 		if (c != null) {
 			throw new SinkCompleteException("Already completed", c.exception());
 		}
-		try {
-			this.queue.put(item);
-		}
-		catch (InterruptedException ex) {
-			completeExceptionally(new RuntimeException("Sending interrupted", ex));
-			throw ex;
-		}
+		// Completion is up to the producer even for interrupted send
+		this.queue.put(item);
 	}
 
 	/**

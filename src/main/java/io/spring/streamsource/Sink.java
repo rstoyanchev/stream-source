@@ -56,9 +56,10 @@ public interface Sink<T> {
 	 * side of an {@link Exchange}, or because an earlier {@code send} was
 	 * interrupted. A producer should treat this as the signal to stop sending.
 	 * @throws IOException if sending encounters an I/O error
-	 * @throws InterruptedException if the sending thread is interrupted, which
-	 * is how a blocked send is cancelled, see
-	 * <a href="https://github.com/spring-projects-experimental/stream-source/blob/main/CANCELLATION.md">CANCELLATION.md</a>.
+	 * @throws InterruptedException if send was interrupted, without the item
+	 * being sent; the Sink is not completed, which is up to the producer, for
+	 * example with {@link #completeExceptionally}, see
+	 * {@link io.spring.streamsource.task.Producer#produceAndComplete(Sink)}
 	 */
 	void send(T item) throws IOException, InterruptedException;
 

@@ -37,9 +37,10 @@ import org.slf4j.LoggerFactory;
  * push items into.
  *
  * <p>The fanout task ends when the outer {@link Sink} is completed and all items
- * are drained. You can also {@link #cancel() cancel} to interrupt the fanout task
- * and complete all listeners immediately. Use {@link #awaitCompletion()} to wait
- * for the background task to end.
+ * are drained. Completing it is up to the caller in any outcome. You can also
+ * {@link #cancel() cancel} to interrupt the fanout task and complete all
+ * listeners immediately. Use {@link #awaitCompletion()} to wait for the
+ * background task to end.
  *
  * <p>By default, listeners are notified on virtual threads, which requires
  * Java 21+. On Java &lt; 21, use the factory method accepting an
