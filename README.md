@@ -23,15 +23,15 @@ When there is a concrete proposal in the JDK, we will adapt accordingly.
 The *Stream Source* library provides contracts and building blocks for data streaming in imperative style.
 In addition, there are adapters to bridge to Reactive Streams through the JDK's `Flow` contracts.
 
-For more deatils, see [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
+For more details, see [DESIGN.md](DESIGN.md) and [FAQ.md](FAQ.md).
 
 
 ## Additional Repositories
 
-- [Spring AI Agent](https://github.com/spring-projects-experimental/spring-ai-agent) --
-  Agentic abstraction for Spring AI that uses *stream-source*.
 - [Stream Source Spring Extensions](https://github.com/spring-projects-experimental/stream-source-spring-extensions) --
   Spring project extensions that use *stream-source*.
+- Spring AI Agent --
+  Agentic abstraction for Spring AI that uses *stream-source* for its streaming API (to be made public shortly).
 
 
 ## Maven Artefact and Dependencies
