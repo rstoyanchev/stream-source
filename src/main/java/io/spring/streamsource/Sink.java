@@ -52,9 +52,9 @@ public interface Sink<T> {
 	 * <p>If this method throws, the item was not sent.
 	 * @param item the item to send, never {@code null}
 	 * @throws SinkCompleteException if the Sink can no longer accept items,
-	 * because it was completed, because the consumer closed the {@code Source}
-	 * side of an {@link Exchange}, or because an earlier {@code send} was
-	 * interrupted. A producer should treat this as the signal to stop sending.
+	 * because it was completed or because the consumer closed the
+	 * {@code Source} side of an {@link Exchange}. A producer should treat
+	 * this as the signal to stop sending.
 	 * @throws IOException if sending encounters an I/O error
 	 * @throws InterruptedException if send was interrupted, without the item
 	 * being sent; the Sink is not completed, which is up to the producer, for

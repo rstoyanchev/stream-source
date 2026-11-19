@@ -36,8 +36,8 @@ package io.spring.streamsource;
  * {@link SinkCompleteException}.
  * </ul>
  *
- * <p>If interrupted in {@code send}, an Exchange must complete exceptionally,
- * allowing the consumer to receive sent items and then see the error.
+ * <p>If interrupted in {@code send} an Exchange does not complete, consistent
+ * with the {@link Sink} contract -- it's the caller's responsibility to do so.
  * If interrupted in {@code receiveNext()}, an Exchange must close, so the
  * producer will get a {@code SinkCompleteException} on the next send. See
  * <a href="https://github.com/spring-projects-experimental/stream-source/blob/main/CANCELLATION.md">CANCELLATION.md</a>.

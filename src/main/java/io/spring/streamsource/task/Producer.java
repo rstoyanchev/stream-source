@@ -1,7 +1,6 @@
 package io.spring.streamsource.task;
 
 import io.spring.streamsource.Sink;
-import io.spring.streamsource.SinkCompleteException;
 import io.spring.streamsource.Source;
 
 /**
